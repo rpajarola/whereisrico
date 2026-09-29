@@ -71,7 +71,13 @@ type Properties struct {
 	EndTimestamp   int64  `json:"end_timestamp,omitempty"`
 	Message        string `json:"message,omitempty"`
 	Timestamp      int64  `json:"timestamp,omitempty"`
-	IsHere         bool   `json:"is_here,omitempty"`
+	// Not omitempty: unlike IsLatestTrip's sibling bool, this is false for
+	// the overwhelming majority of waypoints, and a JSON consumer that
+	// reads "is this property present" as its truthiness check (as
+	// Cesium's PropertyBag does -- observed via web/static/cesium.js)
+	// would otherwise treat every non-latest waypoint as if is_here were
+	// simply unknown rather than explicitly false.
+	IsHere bool `json:"is_here"`
 }
 
 // leg is a [start, end) timestamp bucket for one trip, mirroring the old

@@ -2,7 +2,9 @@ package geojson
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -168,6 +170,59 @@ func TestBuildIsHereExactlyOnePoint(t *testing.T) {
 	}
 	if hereMsg != "latest, has message" {
 		t.Errorf("is_here feature message = %q, want the most recent coord's own message", hereMsg)
+	}
+}
+
+// TestIsHereAlwaysPresentInJSON is a regression test: is_here previously
+// used `json:",omitempty"`, which drops `false` bool values from the
+// encoded JSON entirely. A client that treats "property present" as its
+// truthiness check (as Cesium's GeoJsonDataSource PropertyBag does, see
+// web/static/cesium.js) would then see is_here as simply absent -- not
+// explicitly false -- for every non-latest waypoint, crashing on
+// `properties.is_here.getValue()`. Every waypoint feature's JSON must carry
+// an explicit is_here key regardless of its value.
+func TestIsHereAlwaysPresentInJSON(t *testing.T) {
+	db := openTestDB(t)
+	ctx := context.Background()
+
+	if _, err := db.InsertCoords(ctx, []storage.Coord{
+		{Timestamp: ts(100), Longitude: 1, Latitude: 1, Source: "t", Message: "old, not here"},
+		{Timestamp: ts(200), Longitude: 2, Latitude: 2, Source: "t", Message: "latest, is here"},
+	}); err != nil {
+		t.Fatalf("InsertCoords: %v", err)
+	}
+
+	fc, err := Build(ctx, db, Options{Now: ts(100000)})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+
+	data, err := json.Marshal(fc)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+
+	var raw struct {
+		Features []struct {
+			Properties map[string]json.RawMessage `json:"properties"`
+		} `json:"features"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+
+	waypointCount := 0
+	for _, f := range raw.Features {
+		if !strings.Contains(string(f.Properties["kind"]), "waypoint") {
+			continue
+		}
+		waypointCount++
+		if _, present := f.Properties["is_here"]; !present {
+			t.Errorf("waypoint feature %v: is_here key missing from JSON (want explicit true/false)", f.Properties)
+		}
+	}
+	if waypointCount != 2 {
+		t.Fatalf("got %d waypoint features, want 2", waypointCount)
 	}
 }
 

@@ -3,34 +3,24 @@
 //
 // The server (internal/geojson) supplies raw facts per feature (trip_index,
 // color_index, is_latest_trip, timestamps, is_here); this file is
-// responsible for all presentation -- palette, recency-based opacity fade,
-// and the "I am here" marker -- as MapLibre paint expressions, so tweaking
-// the look never requires a server change.
-
-const PALETTE = [
-  "#3366ff", // blue
-  "#8a2be2", // blueviolet
-  "#ff7f50", // coral
-  "#dc143c", // crimson
-  "#00b7c2", // cyan (darkened slightly for contrast on light basemaps)
-];
-const LATEST_TRIP_COLOR = "#e00000";
-const MIN_LINE_OPACITY = 0.3;
-const MIN_POINT_OPACITY = 0.35;
+// responsible for all presentation -- palette and recency-based opacity
+// fade (shared with cesium.js via shared.js) plus the "I am here" marker --
+// as MapLibre paint expressions, so tweaking the look never requires a
+// server change.
 
 const colorExpression = (colorIndexField) => [
   "case",
   ["get", "is_latest_trip"],
-  LATEST_TRIP_COLOR,
+  WR_LATEST_TRIP_COLOR,
   [
     "match",
     ["get", colorIndexField],
-    0, PALETTE[0],
-    1, PALETTE[1],
-    2, PALETTE[2],
-    3, PALETTE[3],
-    4, PALETTE[4],
-    PALETTE[0],
+    0, WR_PALETTE[0],
+    1, WR_PALETTE[1],
+    2, WR_PALETTE[2],
+    3, WR_PALETTE[3],
+    4, WR_PALETTE[4],
+    WR_PALETTE[0],
   ],
 ];
 
@@ -63,30 +53,8 @@ function computeBounds(geojson) {
   return any ? bounds : null;
 }
 
-function formatTimestamp(unixSeconds) {
-  return new Date(unixSeconds * 1000).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function popupHTML(props) {
-  return `<div class="message">${escapeHTML(props.message)}</div>` +
-    `<div class="date">${formatTimestamp(props.timestamp)}</div>`;
-}
-
-function escapeHTML(s) {
-  const div = document.createElement("div");
-  div.textContent = s;
-  return div.innerHTML;
-}
-
 async function main() {
-  const resp = await fetch("/api/geojson");
-  if (!resp.ok) {
-    throw new Error(`fetching /api/geojson: ${resp.status}`);
-  }
-  const geojson = await resp.json();
+  const geojson = await wrFetchGeoJSON();
   const { min_timestamp: minTs, max_timestamp: maxTs } = geojson.meta;
 
   const map = new maplibregl.Map({
@@ -109,7 +77,7 @@ async function main() {
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
         "line-color": colorExpression("color_index"),
-        "line-opacity": opacityExpression("end_timestamp", minTs, maxTs, MIN_LINE_OPACITY),
+        "line-opacity": opacityExpression("end_timestamp", minTs, maxTs, WR_MIN_LINE_OPACITY),
         "line-width": 3,
       },
     });
@@ -121,7 +89,7 @@ async function main() {
       filter: ["all", ["==", ["get", "kind"], "waypoint"], ["!=", ["get", "is_here"], true]],
       paint: {
         "circle-color": colorExpression("color_index"),
-        "circle-opacity": opacityExpression("timestamp", minTs, maxTs, MIN_POINT_OPACITY),
+        "circle-opacity": opacityExpression("timestamp", minTs, maxTs, WR_MIN_POINT_OPACITY),
         "circle-radius": 5,
         "circle-stroke-color": "#ffffff",
         "circle-stroke-width": 1,
@@ -136,7 +104,7 @@ async function main() {
       paint: {
         "circle-color": "#ffffff",
         "circle-radius": 9,
-        "circle-stroke-color": LATEST_TRIP_COLOR,
+        "circle-stroke-color": WR_LATEST_TRIP_COLOR,
         "circle-stroke-width": 3,
       },
     });
@@ -152,7 +120,7 @@ async function main() {
         const feature = e.features[0];
         popup
           .setLngLat(feature.geometry.coordinates)
-          .setHTML(popupHTML(feature.properties))
+          .setHTML(wrPopupHTML(feature.properties))
           .addTo(map);
       });
       map.on("mouseenter", layerID, () => { map.getCanvas().style.cursor = "pointer"; });
