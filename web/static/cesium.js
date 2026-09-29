@@ -92,17 +92,17 @@ async function main() {
   await viewer.zoomTo(dataSource);
 }
 
-// setUpImageryToggle adds a second base imagery option -- Cesium's own
-// bundled Natural Earth II low-resolution imagery, served as static tiles
-// alongside the Cesium library itself (no network dependency beyond
-// wherever Cesium.js was loaded from, no ion token) -- and a button to
+// setUpImageryToggle adds a second base imagery option -- Natural Earth II
+// low-resolution world imagery, vendored into web/static/imagery/ (see
+// ATTRIBUTION.md there) and served from this app's own origin rather than
+// Cesium's CDN, so it has no external dependency at all -- and a button to
 // switch between it and osmLayer. Unlike OpenStreetMapImageryProvider,
 // TileMapServiceImageryProvider has no synchronous constructor that takes
 // just a URL: it has to fetch and parse the tileset's tilemapresource.xml
 // first to know its bounds/zoom levels, so building it is async.
 async function setUpImageryToggle(viewer, osmLayer) {
   const naturalEarthProvider = await Cesium.TileMapServiceImageryProvider.fromUrl(
-    Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII")
+    "imagery/NaturalEarthII"
   );
   const naturalEarthLayer = viewer.imageryLayers.addImageryProvider(naturalEarthProvider);
   naturalEarthLayer.show = false;
