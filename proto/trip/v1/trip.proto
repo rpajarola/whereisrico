@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package trip.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/rpajarola/whereisrico/internal/gen/tripv1";
+
+// A hand-authored, chronologically ordered log of entries. A TripStart opens
+// a new "leg"; Waypoint/Flight entries that follow (until the next
+// TripStart) belong to that leg. Coordinates outside any leg (e.g. from GPX
+// imports) are not represented here at all -- this format only covers the
+// hand-curated trip/flight annotations that used to live in manual.csx.
+message TripLog {
+  repeated Entry entries = 1;
+}
+
+message Entry {
+  oneof entry {
+    TripStart trip_start = 1;
+    Waypoint waypoint = 2;
+    Flight flight = 3;
+  }
+}
+
+// Marks the start of a new trip leg.
+message TripStart {
+  TimeSpec time = 1;  // required
+  string name = 2;    // required, non-empty
+}
+
+// A single manually logged coordinate and note.
+message Waypoint {
+  TimeSpec time = 1;      // required
+  double latitude = 2;    // required
+  double longitude = 3;   // required
+  string message = 4;     // optional
+}
+
+// A flight leg. Expands at ingestion time to an origin coordinate (departure
+// airport at departure time) and a destination coordinate (arrival airport
+// at arrival local time), resolved via an offline airport database and
+// offline timezone lookup.
+message Flight {
+  TimeSpec departure_time = 1;     // required
+  string airline = 2;              // e.g. "QF"
+  string flight_number = 3;        // e.g. "74"
+  string origin_airport = 4;       // IATA code, e.g. "SFO", required
+  string destination_airport = 5;  // IATA code, e.g. "SYD", required
+  string arrival_local_time = 6;   // "HH:MM" wall-clock at destination, required
+}
+
+// Exactly one of the two fields below must be set; enforced by the loader
+// (proto3 has no "required oneof-of-one").
+message TimeSpec {
+  oneof spec {
+    google.protobuf.Timestamp absolute = 1;  // an already-known UTC instant
+    LocalDateTime local = 2;                 // a hand-authored local date/time
+  }
+}
+
+message LocalDateTime {
+  string date = 1;  // "2024-06-25", required
+  string time = 2;  // "22:25", optional, defaults to "00:00"
+  string zone = 3;  // IANA name or POSIX TZ spec, e.g. "Europe/Zurich" or
+                     // "PST8PDT". Optional -- if unset and the entry has a
+                     // known coordinate (a Waypoint's own lat/lon, or a
+                     // Flight's origin airport), the zone is resolved via
+                     // offline timezone-by-coordinate lookup instead.
+}

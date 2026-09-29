@@ -1,0 +1,22 @@
+entries {
+  trip_start {
+    time { local { date: "2024-06-25" zone: "Europe/Zurich" } }
+    name: "Fixture Trip"
+  }
+}
+entries {
+  waypoint {
+    time { local { date: "2024-06-25" time: "12:00" zone: "Europe/Zurich" } }
+    latitude: 47.3769
+    longitude: 8.5417
+    message: "Zurich"
+  }
+}
+entries {
+  waypoint {
+    time { local { date: "2024-06-26" time: "08:00" zone: "Europe/Zurich" } }
+    latitude: 51.4700
+    longitude: -0.4543
+    message: "London Heathrow"
+  }
+}
