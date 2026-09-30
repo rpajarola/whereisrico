@@ -8,7 +8,6 @@ package geojson
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -80,16 +79,6 @@ type Properties struct {
 	IsHere bool `json:"is_here"`
 }
 
-// leg is a [start, end) timestamp bucket for one trip, mirroring the old
-// GetTrips()'s bucketing: consecutive trip start timestamps define bucket
-// boundaries, with a synthesized leading unnamed leg if coordinates predate
-// the first named trip, and a sentinel end boundary past the last
-// coordinate.
-type leg struct {
-	start, end time.Time
-	name       string
-}
-
 // Build queries db and assembles the full GeoJSON FeatureCollection.
 func Build(ctx context.Context, db *storage.DB, opts Options) (*FeatureCollection, error) {
 	now := opts.Now
@@ -97,23 +86,19 @@ func Build(ctx context.Context, db *storage.DB, opts Options) (*FeatureCollectio
 		now = time.Now()
 	}
 
-	minTS, maxTS, err := db.TimeRange(ctx, now)
+	legs, err := db.Legs(ctx, now)
 	if err != nil {
-		if errors.Is(err, storage.ErrNoCoords) {
-			return &FeatureCollection{
-				Type:     "FeatureCollection",
-				Meta:     Meta{GeneratedAt: now.Unix()},
-				Features: []Feature{},
-			}, nil
-		}
-		return nil, fmt.Errorf("geojson: time range: %w", err)
+		return nil, fmt.Errorf("geojson: legs: %w", err)
 	}
-
-	trips, err := db.Trips(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("geojson: trips: %w", err)
+	if len(legs) == 0 {
+		return &FeatureCollection{
+			Type:     "FeatureCollection",
+			Meta:     Meta{GeneratedAt: now.Unix()},
+			Features: []Feature{},
+		}, nil
 	}
-	legs := buildLegs(trips, minTS, maxTS)
+	minTS := legs[0].Start
+	maxTS := legs[len(legs)-1].End.Add(-time.Second) // undo Legs' sentinel +1s
 
 	fc := &FeatureCollection{
 		Type: "FeatureCollection",
@@ -128,7 +113,7 @@ func Build(ctx context.Context, db *storage.DB, opts Options) (*FeatureCollectio
 		isLatest := i == len(legs)-1
 		colorIndex := i % numColors
 
-		coords, err := db.CoordsBetween(ctx, lg.start, lg.end)
+		coords, err := db.CoordsBetween(ctx, lg.Start, lg.End)
 		if err != nil {
 			return nil, fmt.Errorf("geojson: coords for leg %d: %w", i, err)
 		}
@@ -145,14 +130,14 @@ func Build(ctx context.Context, db *storage.DB, opts Options) (*FeatureCollectio
 					TripIndex:      i,
 					ColorIndex:     colorIndex,
 					IsLatestTrip:   isLatest,
-					TripName:       lg.name,
-					StartTimestamp: lg.start.Unix(),
-					EndTimestamp:   lg.end.Unix(),
+					TripName:       lg.Name,
+					StartTimestamp: lg.Start.Unix(),
+					EndTimestamp:   lg.End.Unix(),
 				},
 			})
 		}
 
-		messaged, err := db.CoordsWithMessageBetween(ctx, lg.start, lg.end)
+		messaged, err := db.CoordsWithMessageBetween(ctx, lg.Start, lg.End)
 		if err != nil {
 			return nil, fmt.Errorf("geojson: messaged coords for leg %d: %w", i, err)
 		}
@@ -189,31 +174,6 @@ func Build(ctx context.Context, db *storage.DB, opts Options) (*FeatureCollectio
 	return fc, nil
 }
 
-// buildLegs turns the trips table into [start,end) buckets covering
-// [min(coord ts), max(coord ts)]. If coordinates predate the first named
-// trip, a leading unnamed leg is synthesized, matching the old
-// GetTrips()'s behavior.
-func buildLegs(trips []storage.Trip, minTS, maxTS time.Time) []leg {
-	bounds := make([]time.Time, 0, len(trips)+2)
-	names := make([]string, 0, len(trips)+1)
-
-	if len(trips) == 0 || trips[0].Timestamp.After(minTS) {
-		bounds = append(bounds, minTS)
-		names = append(names, "")
-	}
-	for _, t := range trips {
-		bounds = append(bounds, t.Timestamp)
-		names = append(names, t.Name)
-	}
-	bounds = append(bounds, maxTS.Add(time.Second)) // sentinel end, exclusive
-
-	legs := make([]leg, len(bounds)-1)
-	for i := range legs {
-		legs[i] = leg{start: bounds[i], end: bounds[i+1], name: names[i]}
-	}
-	return legs
-}
-
 func hasHereMarker(features []Feature) bool {
 	for _, f := range features {
 		if f.Properties.IsHere {
@@ -226,7 +186,7 @@ func hasHereMarker(features []Feature) bool {
 // hereFeature synthesizes the "I am here" marker when the most recent
 // coordinate has no message (so the loop above never emitted a waypoint
 // feature for it), matching the old AddMessages()'s fallback branch.
-func hereFeature(ctx context.Context, db *storage.DB, maxTS time.Time, legs []leg) (*Feature, error) {
+func hereFeature(ctx context.Context, db *storage.DB, maxTS time.Time, legs []storage.Leg) (*Feature, error) {
 	coords, err := db.CoordsBetween(ctx, maxTS, maxTS.Add(time.Second))
 	if err != nil {
 		return nil, err
@@ -238,7 +198,7 @@ func hereFeature(ctx context.Context, db *storage.DB, maxTS time.Time, legs []le
 
 	tripIndex := len(legs) - 1
 	for i, lg := range legs {
-		if !c.Timestamp.Before(lg.start) && c.Timestamp.Before(lg.end) {
+		if !c.Timestamp.Before(lg.Start) && c.Timestamp.Before(lg.End) {
 			tripIndex = i
 			break
 		}

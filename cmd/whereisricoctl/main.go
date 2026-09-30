@@ -20,6 +20,8 @@ func main() {
 		err = runIngest(os.Args[2:])
 	case "import-legacy":
 		err = runImportLegacy(os.Args[2:])
+	case "export-gpx":
+		err = runExportGPX(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -40,6 +42,7 @@ func usage() {
 commands:
   ingest         scan a directory for .gpx / .textproto files and load new/changed ones into the database
   import-legacy  import coords/trips from the old Python system's sqlite database
+  export-gpx     export a trip's coordinates (from any source) as a .gpx file, one per named trip by default
 
 Run "whereisricoctl <command> -h" for flags on a specific command.`)
 }
