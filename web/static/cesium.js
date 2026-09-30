@@ -81,7 +81,9 @@ async function main() {
         : color.withAlpha(wrComputeOpacity(props.timestamp.getValue(), minTs, maxTs, WR_MIN_POINT_OPACITY)),
       outlineColor: isHere ? Cesium.Color.fromCssColorString(WR_LATEST_TRIP_COLOR) : Cesium.Color.WHITE,
       outlineWidth: isHere ? 3 : 1,
-      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      // disableDepthTestDistance defaults to 0 (always depth-test), which
+      // is what we want: a point on the far side of the globe should be
+      // occluded by it, not drawn through it.
     });
     entity.description = wrPopupHTML({
       message: props.message.getValue(),
