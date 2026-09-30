@@ -1,0 +1,5 @@
+# Environment overrides for whereisricod, sourced by systemd
+# (EnvironmentFile= in /lib/systemd/system/whereisricod.service).
+# Edit and then run: systemctl restart whereisricod
+
+WHEREISRICO_ADDR=:8080

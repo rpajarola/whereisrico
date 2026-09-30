@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically ingest new whereisrico GPS/trip data
+Documentation=https://github.com/rpajarola/whereisrico
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

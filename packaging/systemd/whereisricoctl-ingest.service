@@ -1,0 +1,15 @@
+[Unit]
+Description=whereisrico data ingest (scans /var/lib/whereisrico for new .gpx/.textproto files)
+Documentation=https://github.com/rpajarola/whereisrico
+
+[Service]
+Type=oneshot
+User=whereisrico
+Group=whereisrico
+ExecStart=/usr/bin/whereisricoctl ingest --db /var/lib/whereisrico/whereisrico.db --dir /var/lib/whereisrico
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/whereisrico
+ProtectHome=true
+PrivateTmp=true

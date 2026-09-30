@@ -1,0 +1,32 @@
+[Unit]
+Description=whereisrico web server
+Documentation=https://github.com/rpajarola/whereisrico
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=whereisrico
+Group=whereisrico
+EnvironmentFile=-/etc/default/whereisricod
+ExecStart=/usr/bin/whereisricod --db /var/lib/whereisrico/whereisrico.db --static /usr/share/whereisrico/static --addr ${WHEREISRICO_ADDR}
+Restart=on-failure
+RestartSec=5s
+
+# Hardening: the service only needs to read its static assets, and read/write
+# its data directory -- everything else on the system stays inaccessible.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/whereisrico
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target
