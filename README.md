@@ -5,8 +5,9 @@ trip/flight logs (`.textproto`, see `proto/trip/v1/trip.proto`) are ingested
 into a SQLite database and served as GeoJSON to a MapLibre GL globe
 frontend.
 
-`old/` contains the original Python/KML implementation, kept for historical
-reference only.
+The original Python/KML implementation this was ported from is archived in
+the private `whereisrico-data` repo's `old/` directory (see Data below),
+not in this repo.
 
 ## Data
 
