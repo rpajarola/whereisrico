@@ -62,14 +62,16 @@ sudo journalctl -u whereisricod -f
 sudo systemctl start whereisricoctl-ingest.service   # ingest on demand
 ```
 
-To seed a fresh install with this repo's existing `data/`, copy it in
-before or after install (ownership will be fixed by the next
-`whereisricoctl ingest` run, or fix it directly):
+To seed a fresh install with existing data, clone the private
+[rpajarola/whereisrico-data](https://github.com/rpajarola/whereisrico-data)
+repo and copy it in (ownership will be fixed by the next `whereisricoctl
+ingest` run, or fix it directly):
 
 ```
-sudo cp -r data/trips/*.textproto /var/lib/whereisrico/trips/
-sudo cp -r data/gpx/*.gpx /var/lib/whereisrico/gpx/
-sudo cp data/whereisrico.db /var/lib/whereisrico/   # or use whereisricoctl import-legacy
+git clone git@github.com:rpajarola/whereisrico-data.git /tmp/whereisrico-data
+sudo cp -r /tmp/whereisrico-data/data/trips/*.textproto /var/lib/whereisrico/trips/
+sudo cp -r /tmp/whereisrico-data/data/gpx/*.gpx /var/lib/whereisrico/gpx/
+sudo cp /tmp/whereisrico-data/data/whereisrico.db /var/lib/whereisrico/   # or use whereisricoctl import-legacy
 sudo chown -R whereisrico:whereisrico /var/lib/whereisrico
 sudo systemctl restart whereisricod
 ```

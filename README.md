@@ -8,6 +8,21 @@ frontend.
 `old/` contains the original Python/KML implementation, kept for historical
 reference only.
 
+## Data
+
+`data/trips/`, `data/gpx/`, and `data/whereisrico.db` are personal travel
+data and are not part of this repo's git history -- they're gitignored
+here and live in a separate private repo
+([rpajarola/whereisrico-data](https://github.com/rpajarola/whereisrico-data)).
+Clone that repo and copy its `data/` into this one to populate a local
+checkout:
+
+```
+git clone git@github.com:rpajarola/whereisrico-data.git /tmp/whereisrico-data
+cp -r /tmp/whereisrico-data/data/trips /tmp/whereisrico-data/data/gpx data/
+cp /tmp/whereisrico-data/data/whereisrico.db data/
+```
+
 ## Build
 
 ```

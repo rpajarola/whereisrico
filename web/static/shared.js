@@ -36,9 +36,16 @@ function wrComputeOpacity(ts, minTs, maxTs, minOpacity) {
 }
 
 async function wrFetchGeoJSON() {
-  const resp = await fetch("/api/geojson");
+  // Relative, not "/api/geojson": this frontend may be reverse-proxied
+  // under a path prefix (e.g. Apache ProxyPass "/whereisrico/" -> this
+  // server's "/"), and every other same-origin reference in this app
+  // (script/link tags, cesium.js's imagery URL) is already relative for
+  // exactly that reason. An absolute path here would resolve against the
+  // site root instead of the page's own directory, bypassing the prefix
+  // entirely and 404ing behind such a proxy.
+  const resp = await fetch("api/geojson");
   if (!resp.ok) {
-    throw new Error(`fetching /api/geojson: ${resp.status}`);
+    throw new Error(`fetching api/geojson: ${resp.status}`);
   }
   return resp.json();
 }
