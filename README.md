@@ -37,6 +37,12 @@ go build ./...
 # skipping files unchanged since the last run.
 go run ./cmd/whereisricoctl ingest --db data/whereisrico.db --dir data
 
+# Convert a Google Maps Timeline export (Timeline.json, exported from the
+# Maps app) to GPX, optionally limited to a trip's dates, then drop it into
+# data/gpx/ for ingest.
+go run ./cmd/whereisricoctl convert-timeline --in Timeline.json \
+    --out data/gpx/mytrip.gpx --from 2026-08-20 --to 2026-09-05
+
 # Serve the frontend and GeoJSON API.
 go run ./cmd/whereisricod --db data/whereisrico.db --static web/static --addr :8080
 ```
