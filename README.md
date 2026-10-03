@@ -38,10 +38,13 @@ go build ./...
 go run ./cmd/whereisricoctl ingest --db data/whereisrico.db --dir data
 
 # Convert a Google Maps Timeline export (Timeline.json, exported from the
-# Maps app) to GPX, optionally limited to a trip's dates, then drop it into
-# data/gpx/ for ingest.
+# Maps app) to GPX for one trip: the date range comes from the trip in the
+# db, points during its flights are dropped, and the track is thinned to
+# roughly one point per 20 min / 20 km. Writes data/gpx/timeline-<trip>.gpx
+# for the next ingest. Use --from/--to/--out instead of --trip for an
+# arbitrary range; see --help for the thinning knobs.
 go run ./cmd/whereisricoctl convert-timeline --in Timeline.json \
-    --out data/gpx/mytrip.gpx --from 2026-08-20 --to 2026-09-05
+    --trip "Australia 2024"
 
 # Serve the frontend and GeoJSON API.
 go run ./cmd/whereisricod --db data/whereisrico.db --static web/static --addr :8080
