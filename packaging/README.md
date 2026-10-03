@@ -105,8 +105,9 @@ sudo systemctl start whereisricoctl-ingest.service   # ingest on demand
 
 To seed a fresh install with existing data, clone the private
 [rpajarola/whereisrico-data](https://github.com/rpajarola/whereisrico-data)
-repo and copy it in (ownership will be fixed by the next `whereisricoctl
-ingest` run, or fix it directly):
+repo and copy it in. Files copied with `sudo` are owned by root, which
+the services (running as `whereisrico`) can't write to, so fix ownership
+afterwards:
 
 ```
 git clone git@github.com:rpajarola/whereisrico-data.git /tmp/whereisrico-data
