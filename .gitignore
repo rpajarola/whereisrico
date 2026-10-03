@@ -2,3 +2,9 @@
 /data/trips/
 /data/gpx/
 /dist/
+
+# Local `go build` outputs: in the repo root, or in the package directory.
+/whereisricod
+/whereisricoctl
+/cmd/whereisricod/whereisricod
+/cmd/whereisricoctl/whereisricoctl
