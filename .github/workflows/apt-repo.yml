@@ -1,0 +1,64 @@
+# Publishes a signed apt repository to GitHub Pages containing the .deb
+# assets of every GitHub release. Runs when a release is published, or
+# manually (e.g. after re-uploading assets). See packaging/README.md for
+# the one-time setup (signing key secret, Pages source).
+name: apt repository
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download .debs from all releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir debs
+          gh release list --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName' |
+            while read -r tag; do
+              gh release download "$tag" --pattern '*.deb' --dir debs || echo "no .debs in $tag"
+            done
+          ls -l debs
+
+      - name: Import signing key
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          echo "$APT_SIGNING_KEY" | gpg --batch --import
+          fpr=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+          echo "GPG_KEY_ID=$fpr" >> "$GITHUB_ENV"
+
+      - name: Build repository
+        run: |
+          command -v apt-ftparchive || sudo apt-get install -y apt-utils
+          packaging/apt-repo.sh debs site
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

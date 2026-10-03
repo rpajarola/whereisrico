@@ -25,6 +25,18 @@ including this one, needs no C toolchain.
 
 ## Install
 
+From the apt repository (gets updates with `apt upgrade`):
+
+```
+sudo curl -fsSLo /usr/share/keyrings/whereisrico.gpg https://rpajarola.github.io/whereisrico/whereisrico.gpg
+echo "deb [signed-by=/usr/share/keyrings/whereisrico.gpg] https://rpajarola.github.io/whereisrico stable main" \
+  | sudo tee /etc/apt/sources.list.d/whereisrico.list
+sudo apt update
+sudo apt install whereisrico
+```
+
+Or from a downloaded or locally built package:
+
 ```
 sudo apt install ./dist/whereisrico_<version>_<arch>.deb
 ```
@@ -38,6 +50,35 @@ into `/var/lib/whereisrico`).
 
 Put a reverse proxy (nginx, Caddy, etc.) in front for TLS/a real domain —
 `whereisricod` itself only speaks plain HTTP.
+
+## Apt repository
+
+`.github/workflows/apt-repo.yml` publishes a signed apt repository to
+GitHub Pages (`https://rpajarola.github.io/whereisrico`) whenever a
+release is published. It rebuilds the whole repository from the `.deb`
+assets of every GitHub release, so publishing a release with `.deb`s
+attached is all it takes; nothing else is stored. Run it manually
+(Actions → apt repository → Run workflow) after changing a release's
+assets. `packaging/apt-repo.sh` does the actual work and can be run
+anywhere with `apt-ftparchive` and `gpg`.
+
+One-time setup:
+
+1. Create a dedicated signing key without a passphrase (it only signs
+   this repository), and keep a backup of it -- if it is lost, every user
+   has to fetch a new public key:
+   ```
+   gpg --batch --passphrase '' --quick-gen-key "whereisrico apt repository <rp@servium.ch>" ed25519 sign never
+   gpg --armor --export-secret-keys "whereisrico apt repository" > whereisrico-apt-signing-key.asc
+   ```
+2. Store it as the `APT_SIGNING_KEY` repository secret, then delete the
+   exported file:
+   ```
+   gh secret set APT_SIGNING_KEY < whereisrico-apt-signing-key.asc
+   ```
+3. Set the Pages source to GitHub Actions (Settings → Pages → Source, or
+   `gh api -X POST repos/rpajarola/whereisrico/pages -f build_type=workflow`).
+4. Run the workflow once to publish the existing releases.
 
 ## Layout installed
 
