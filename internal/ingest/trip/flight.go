@@ -2,6 +2,7 @@ package trip
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	tripv1 "github.com/rpajarola/whereisrico/internal/gen/trip/v1"
@@ -24,7 +25,8 @@ import (
 //  2. When the naive arrival instant lands before the departure instant
 //     (an overnight flight crossing into the next calendar day), the old
 //     code corrected it with `dest_timestamp *= 24 * 3600` -- multiplying a
-//     Unix timestamp instead of adding a day. This version adds 24 hours.
+//     Unix timestamp instead of adding a day. This version adds 24 hours,
+//     repeatedly if needed.
 func expandFlight(source string, f *tripv1.Flight, airports airport.Lookup, tzs tz.Lookup) (origin, dest storage.Coord, err error) {
 	if f.GetOriginAirport() == "" || f.GetDestinationAirport() == "" {
 		return storage.Coord{}, storage.Coord{}, fmt.Errorf("flight: origin and destination airport codes are required")
@@ -73,13 +75,16 @@ func expandFlight(source string, f *tripv1.Flight, airports airport.Lookup, tzs 
 
 	destTime := time.Date(originDate.Year(), originDate.Month(), originDate.Day(),
 		arrHour, arrMinute, 0, 0, destLoc).UTC()
-	if destTime.Before(originTime) {
+	// Eastbound flights across the date line (e.g. SFO 22:25 -> SYD 06:05)
+	// arrive two calendar days after departure, so one day may not be
+	// enough.
+	for destTime.Before(originTime) {
 		destTime = destTime.Add(24 * time.Hour)
 	}
 
 	origin = storage.Coord{
 		Timestamp: originTime,
-		Message:   fmt.Sprintf("%s (%s %s -> %s)", f.GetOriginAirport(), f.GetAirline(), f.GetFlightNumber(), f.GetDestinationAirport()),
+		Message:   fmt.Sprintf(flightOriginFormat, f.GetOriginAirport(), f.GetAirline(), f.GetFlightNumber(), f.GetDestinationAirport()),
 		Longitude: originAirport.Longitude,
 		Latitude:  originAirport.Latitude,
 		Source:    source,
@@ -92,4 +97,23 @@ func expandFlight(source string, f *tripv1.Flight, airports airport.Lookup, tzs 
 		Source:    source,
 	}
 	return origin, dest, nil
+}
+
+// flightOriginFormat is the message expandFlight puts on a flight's origin
+// coordinate; flightOriginRE matches it. The destination coordinate's
+// message is just the destination airport code.
+const flightOriginFormat = "%s (%s %s -> %s)"
+
+var flightOriginRE = regexp.MustCompile(`^(\S+) \(.* -> (\S+)\)$`)
+
+// ParseFlightOrigin reports whether msg is a flight origin coordinate's
+// message as produced by expandFlight, and if so returns the origin and
+// destination airport codes. The matching destination coordinate is the
+// next one whose message equals dest.
+func ParseFlightOrigin(msg string) (origin, dest string, ok bool) {
+	m := flightOriginRE.FindStringSubmatch(msg)
+	if m == nil {
+		return "", "", false
+	}
+	return m[1], m[2], true
 }

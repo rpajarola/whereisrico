@@ -1,6 +1,7 @@
 package trip
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -113,6 +114,31 @@ func TestExpandFlightOvernightAddsOneDay(t *testing.T) {
 	}
 }
 
+func TestExpandFlightAcrossDateLineAddsTwoDays(t *testing.T) {
+	// QF 74 SFO -> SYD: departs 22:25 PDT on the 25th, arrives 06:05 AEST
+	// on the 27th. 06:05 AEST on the 26th is still before departure, so
+	// the destination must be rolled forward twice.
+	f := &tripv1.Flight{
+		DepartureTime: &tripv1.TimeSpec{Spec: &tripv1.TimeSpec_Local{Local: &tripv1.LocalDateTime{
+			Date: "2024-06-25", Time: "22:25", Zone: "America/Los_Angeles",
+		}}},
+		Airline:            "QF",
+		FlightNumber:       "74",
+		OriginAirport:      "SFO",
+		DestinationAirport: "SYD",
+		ArrivalLocalTime:   "06:05",
+	}
+
+	_, dest, err := expandFlight("test", f, testAirports(), testZones())
+	if err != nil {
+		t.Fatalf("expandFlight: %v", err)
+	}
+	wantDest := time.Date(2024, 6, 26, 20, 5, 0, 0, time.UTC) // 06:05 AEST (+10) on the 27th
+	if !dest.Timestamp.Equal(wantDest) {
+		t.Errorf("dest timestamp = %v, want %v", dest.Timestamp, wantDest)
+	}
+}
+
 func TestExpandFlightUnknownAirport(t *testing.T) {
 	f := &tripv1.Flight{
 		DepartureTime: &tripv1.TimeSpec{Spec: &tripv1.TimeSpec_Local{Local: &tripv1.LocalDateTime{
@@ -124,5 +150,17 @@ func TestExpandFlightUnknownAirport(t *testing.T) {
 	}
 	if _, _, err := expandFlight("test", f, testAirports(), testZones()); err == nil {
 		t.Fatal("expandFlight with unknown origin airport: want error, got nil")
+	}
+}
+
+func TestParseFlightOrigin(t *testing.T) {
+	origin, dest, ok := ParseFlightOrigin(fmt.Sprintf(flightOriginFormat, "SFO", "QF", "74", "SYD"))
+	if !ok || origin != "SFO" || dest != "SYD" {
+		t.Errorf("ParseFlightOrigin = (%q, %q, %v), want (SFO, SYD, true)", origin, dest, ok)
+	}
+	for _, msg := range []string{"SYD", "", "Lunch in Bern", "SFO (QF 74)"} {
+		if _, _, ok := ParseFlightOrigin(msg); ok {
+			t.Errorf("ParseFlightOrigin(%q) matched, want no match", msg)
+		}
 	}
 }
